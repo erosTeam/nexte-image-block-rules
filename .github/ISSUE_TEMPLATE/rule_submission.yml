@@ -18,6 +18,14 @@ body:
       description: Optional public review link. Do not include cookies or temporary EH image links.
     validations:
       required: false
+  - type: input
+    id: source_page
+    attributes:
+      label: Source Page
+      description: Optional 1-based page number inside the public review gallery.
+      placeholder: "1"
+    validations:
+      required: false
   - type: textarea
     id: note
     attributes:

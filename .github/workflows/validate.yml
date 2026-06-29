@@ -15,4 +15,5 @@ jobs:
           node-version: '20'
       - run: node tools/rules.mjs validate
       - run: node tools/rules.mjs build
+      - run: node tools/test_import_jsonl.mjs
       - run: git diff --exit-code -- dist

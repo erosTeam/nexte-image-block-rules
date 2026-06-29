@@ -9,6 +9,7 @@ const FEEDS_PATH = join(ROOT, 'feeds.json')
 const DIST_DIR = join(ROOT, 'dist')
 const HASH_RE = /^[0-9a-f]{16}$/
 const MAX_THRESHOLD = 12
+const MAX_SOURCE_PAGE = 100000
 
 function usage() {
   console.log(`Usage:
@@ -16,7 +17,8 @@ function usage() {
   node tools/rules.mjs build
   node tools/rules.mjs stats
   node tools/rules.mjs find --hash <hex> | --source-url <url>
-  node tools/rules.mjs add --feed <id> --hash <hex> [--threshold 8] [--label scanlator-ad] [--source-url <url>] [--note <text>]`)
+  node tools/rules.mjs add --feed <id> --hash <hex> [--threshold 8] [--label scanlator-ad] [--source-url <url>] [--source-page <n>] [--note <text>]
+  node tools/rules.mjs import-jsonl --feed <id> --file <draft.jsonl|-> [--apply] [--no-build]`)
 }
 
 function parseArgs(argv) {
@@ -64,7 +66,7 @@ function readJsonl(path) {
   return rows
 }
 
-function normalizeRule(row, feed, line) {
+function normalizeRule(row, feed, line, wherePrefix = feed.file) {
   const hash = typeof row.hash === 'string' ? row.hash.toLowerCase() : ''
   const threshold = Number.isInteger(row.threshold) ? row.threshold : feed.defaultThreshold
   const label = typeof row.label === 'string' && row.label.trim().length > 0
@@ -72,16 +74,18 @@ function normalizeRule(row, feed, line) {
     : 'scanlator-ad'
   const scope = typeof row.scope === 'string' && row.scope.length > 0 ? row.scope : 'whole'
   const sourceUrl = typeof row.sourceUrl === 'string' ? row.sourceUrl.trim() : ''
+  const sourcePage = row.sourcePage
   const note = typeof row.note === 'string' ? row.note.trim() : ''
   const normalized = { hash, threshold, label, scope }
   if (sourceUrl.length > 0) normalized.sourceUrl = sourceUrl
+  if (sourcePage !== undefined) normalized.sourcePage = sourcePage
   if (note.length > 0) normalized.note = note
-  validateRule(normalized, feed, line)
+  validateRule(normalized, feed, line, wherePrefix)
   return normalized
 }
 
-function validateRule(rule, feed, line) {
-  const where = `${feed.file}:${line}`
+function validateRule(rule, feed, line, wherePrefix = feed.file) {
+  const where = `${wherePrefix}:${line}`
   if (!HASH_RE.test(rule.hash)) {
     throw new Error(`${where}: hash must be 16 lowercase hex characters`)
   }
@@ -96,6 +100,10 @@ function validateRule(rule, feed, line) {
   }
   if (rule.sourceUrl !== undefined && unsafeSourceUrl(rule.sourceUrl)) {
     throw new Error(`${where}: sourceUrl appears to contain private or temporary image data`)
+  }
+  if (rule.sourcePage !== undefined &&
+    (!Number.isInteger(rule.sourcePage) || rule.sourcePage < 1 || rule.sourcePage > MAX_SOURCE_PAGE)) {
+    throw new Error(`${where}: sourcePage must be an integer from 1 to ${MAX_SOURCE_PAGE}`)
   }
 }
 
@@ -114,10 +122,16 @@ function unsafeSourceUrl(raw) {
     'ipb_member_id',
     'igneous',
     'pass_hash',
+    'fullimg.php',
     'showkey',
     'nl=',
+    'sk=',
     'token=',
     'auth=',
+    'password=',
+    'passwd=',
+    'session=',
+    'sid=',
   ]
   for (const token of banned) {
     if (lower.includes(token)) return true
@@ -201,8 +215,9 @@ function buildAll() {
     report.push('')
     for (const rule of rules) {
       const source = rule.sourceUrl ? ` [source](${rule.sourceUrl})` : ''
+      const page = Number.isInteger(rule.sourcePage) ? ` P${rule.sourcePage}` : ''
       const note = rule.note ? ` - ${rule.note}` : ''
-      report.push(`- \`${rule.hash}\` threshold=${rule.threshold} label=${rule.label}${source}${note}`)
+      report.push(`- \`${rule.hash}\` threshold=${rule.threshold} label=${rule.label}${source}${page}${note}`)
     }
     report.push('')
   }
@@ -230,7 +245,8 @@ function stats() {
   for (const feed of feeds) {
     const rules = loadRules(feed)
     const withSource = rules.filter(rule => rule.sourceUrl !== undefined).length
-    console.log(`${feed.id}: ${rules.length} rules, ${withSource} sourceUrl`)
+    const withSourcePage = rules.filter(rule => rule.sourcePage !== undefined).length
+    console.log(`${feed.id}: ${rules.length} rules, ${withSource} sourceUrl, ${withSourcePage} sourcePage`)
   }
 }
 
@@ -272,6 +288,7 @@ function add(args) {
     scope: args.scope || 'whole',
   }
   if (args.sourceUrl !== undefined) rule.sourceUrl = args.sourceUrl
+  if (args.sourcePage !== undefined) rule.sourcePage = Number(args.sourcePage)
   if (args.note !== undefined) rule.note = args.note
   validateRule(rule, feed, 'new')
   const existing = loadRules(feed)
@@ -282,6 +299,113 @@ function add(args) {
   mkdirSync(dirname(path), { recursive: true })
   appendFileSync(path, `${JSON.stringify(rule)}\n`)
   console.log(`Added ${rule.hash} to ${feed.id}`)
+}
+
+function importJsonl(args) {
+  const feedId = args.feed || ''
+  const feeds = loadFeeds()
+  const feed = feeds.find(item => item.id === feedId)
+  if (feed === undefined) {
+    throw new Error(`unknown feed: ${feedId}`)
+  }
+  const file = args.file || ''
+  if (file.length === 0) {
+    throw new Error('import-jsonl needs --file <draft.jsonl|->')
+  }
+  const apply = args.apply === 'true'
+  const noBuild = args.noBuild === 'true'
+  const importRows = readImportJsonl(file, feed)
+  const existing = loadRules(feed)
+  const existingHashes = new Set(existing.map(rule => rule.hash))
+  const incomingHashes = new Set()
+  const pending = []
+  const duplicateExisting = []
+  const duplicateIncoming = []
+  for (const item of importRows.valid) {
+    if (existingHashes.has(item.rule.hash)) {
+      duplicateExisting.push(item)
+      continue
+    }
+    if (incomingHashes.has(item.rule.hash)) {
+      duplicateIncoming.push(item)
+      continue
+    }
+    incomingHashes.add(item.rule.hash)
+    pending.push(item)
+  }
+  printImportSummary(feed, file, pending, duplicateExisting, duplicateIncoming, importRows.invalid, apply)
+  if (!apply) {
+    return
+  }
+  if (importRows.invalid.length > 0) {
+    throw new Error('import-jsonl refused to apply because the draft contains invalid rows')
+  }
+  if (pending.length === 0) {
+    console.log('No new rules to append')
+    return
+  }
+  const path = join(ROOT, feed.file)
+  mkdirSync(dirname(path), { recursive: true })
+  let body = ''
+  for (const item of pending) {
+    body += `${JSON.stringify(item.rule)}\n`
+  }
+  appendFileSync(path, body)
+  console.log(`Appended ${pending.length} rule(s) to ${feed.file}`)
+  if (!noBuild) {
+    buildAll()
+  }
+}
+
+function readImportJsonl(file, feed) {
+  const sourceName = file === '-' ? '<stdin>' : file
+  const text = file === '-'
+    ? readFileSync(0, 'utf8')
+    : readFileSync(file, 'utf8')
+  const lines = text.split(/\r?\n/)
+  const valid = []
+  const invalid = []
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim()
+    if (line.length === 0) continue
+    try {
+      const row = JSON.parse(line)
+      const rule = normalizeRule(row, feed, i + 1, sourceName)
+      if (rule.sourceUrl === undefined || rule.sourceUrl.length === 0) {
+        throw new Error(`${sourceName}:${i + 1}: sourceUrl is required for app-imported review drafts`)
+      }
+      if (rule.sourcePage === undefined) {
+        throw new Error(`${sourceName}:${i + 1}: sourcePage is required for app-imported review drafts`)
+      }
+      valid.push({ rule, line: i + 1 })
+    } catch (error) {
+      invalid.push({
+        line: i + 1,
+        message: error.message,
+      })
+    }
+  }
+  return { valid, invalid }
+}
+
+function printImportSummary(feed, file, pending, duplicateExisting, duplicateIncoming, invalid, apply) {
+  console.log(`${apply ? 'Import' : 'Import dry-run'} for ${feed.id} from ${file}`)
+  console.log(`new=${pending.length} duplicateExisting=${duplicateExisting.length} duplicateIncoming=${duplicateIncoming.length} invalid=${invalid.length}`)
+  for (const item of pending) {
+    const source = item.rule.sourceUrl ? ` source=${item.rule.sourceUrl}` : ''
+    const page = Number.isInteger(item.rule.sourcePage) ? ` page=${item.rule.sourcePage}` : ''
+    const note = item.rule.note ? ` note="${item.rule.note}"` : ''
+    console.log(`+ line ${item.line}: ${item.rule.hash} threshold=${item.rule.threshold} label=${item.rule.label}${source}${page}${note}`)
+  }
+  for (const item of duplicateExisting) {
+    console.log(`= line ${item.line}: duplicate existing hash ${item.rule.hash}`)
+  }
+  for (const item of duplicateIncoming) {
+    console.log(`= line ${item.line}: duplicate incoming hash ${item.rule.hash}`)
+  }
+  for (const item of invalid) {
+    console.log(`! line ${item.line}: ${item.message}`)
+  }
 }
 
 function main() {
@@ -296,6 +420,7 @@ function main() {
   if (command === 'stats') return stats()
   if (command === 'find') return find(args)
   if (command === 'add') return add(args)
+  if (command === 'import-jsonl') return importJsonl(args)
   throw new Error(`unknown command: ${command}`)
 }
 

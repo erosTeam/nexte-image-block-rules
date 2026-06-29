@@ -20,15 +20,15 @@ The generated `dist/` files contain only client-safe rule data:
 - `label`
 - `scope`
 
-Reviewer-only fields such as `sourceUrl` and `note` are kept in `rules/*.jsonl` and are removed from
-`dist/`.
+Reviewer-only fields such as `sourceUrl`, `sourcePage`, and `note` are kept in `rules/*.jsonl` and are
+removed from `dist/`.
 
 ## Rules
 
 Rules are edited in JSON Lines files under `rules/`.
 
 ```json
-{"hash":"0123456789abcdef","threshold":8,"label":"scanlator-ad","scope":"whole","sourceUrl":"https://example.com/review-image","note":"full-page ad"}
+{"hash":"0123456789abcdef","threshold":8,"label":"scanlator-ad","scope":"whole","sourceUrl":"https://example.com/review-gallery","sourcePage":1,"note":"full-page ad"}
 ```
 
 Fields:
@@ -38,6 +38,7 @@ Fields:
 - `label`: short category, usually `scanlator-ad`.
 - `scope`: `whole` for first-version full-image matching.
 - `sourceUrl`: optional review link. It is not published to clients.
+- `sourcePage`: optional 1-based page number for the review link. It is not published to clients.
 - `note`: optional maintainer note. It is not published to clients.
 
 ## Commands
@@ -45,8 +46,29 @@ Fields:
 ```bash
 node tools/rules.mjs validate
 node tools/rules.mjs build
+node tools/test_import_jsonl.mjs
 node tools/rules.mjs stats
 node tools/rules.mjs find --hash 0123456789abcdef
+```
+
+Review an app-copied JSONL draft without changing files:
+
+```bash
+node tools/rules.mjs import-jsonl \
+  --feed zh-scanlator-ads \
+  --file /path/to/app-draft.jsonl
+```
+
+App-copied drafts must include both `sourceUrl` and `sourcePage` so maintainers can jump to the exact
+review page.
+
+Append valid, non-duplicate draft rows and regenerate `dist/`:
+
+```bash
+node tools/rules.mjs import-jsonl \
+  --feed zh-scanlator-ads \
+  --file /path/to/app-draft.jsonl \
+  --apply
 ```
 
 Add a rule:
@@ -56,7 +78,8 @@ node tools/rules.mjs add \
   --feed zh-scanlator-ads \
   --hash 0123456789abcdef \
   --threshold 8 \
-  --source-url https://example.com/review-image \
+  --source-url https://example.com/review-gallery \
+  --source-page 1 \
   --note "full-page ad"
 ```
 
@@ -69,4 +92,4 @@ Do not submit:
 - Full original images.
 - Any source URL containing credentials or private query parameters.
 
-The app-side contribution flow should make `sourceUrl` explicit and user-confirmed.
+The app-side contribution flow should make `sourceUrl` and `sourcePage` explicit and user-confirmed.

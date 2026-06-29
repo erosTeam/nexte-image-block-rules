@@ -4,7 +4,8 @@
 
 - Source rules in `rules/*.jsonl`.
 - Generated subscription files in `dist/`.
-- CLI for add, validate, build, stats, and find.
+- CLI for add, import-jsonl, validate, build, stats, and find.
+- Importer smoke test for app-copied JSONL drafts.
 - GitHub Actions validation on every PR.
 
 ## Phase 1: NextE Client Consumption
@@ -17,6 +18,8 @@
 ## Phase 2: App-Assisted Contribution
 
 - Export a JSONL rule snippet from the app.
+- Maintainer-side dry-run/apply importer for app-copied JSONL drafts.
+- Structured reviewer metadata: public `sourceUrl`, 1-based `sourcePage`, and optional note.
 - Open a prefilled GitHub issue or PR page.
 - Strip or warn about unsafe `sourceUrl` values before submission.
 
