@@ -9,8 +9,8 @@
       "url": "https://raw.githubusercontent.com/erosTeam/nexte-image-block-rules/main/dist/zh-scanlator-ads.json",
       "algorithm": "dct64-v1",
       "defaultThreshold": 8,
-      "count": 0,
-      "sha256": "9afd442dfcbeb3ff52d6f21453549a1fd9629ad9e36d6d4fabf7d069d16792d4"
+      "count": 1,
+      "sha256": "5bc6849243594b7886105fd30c58a88acf6658987b714ce8d5099beef618f2b1"
     }
   ]
 }

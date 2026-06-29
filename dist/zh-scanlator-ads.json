@@ -6,5 +6,12 @@
   "algorithm": "dct64-v1",
   "defaultThreshold": 8,
   "updatedAt": 0,
-  "items": []
+  "items": [
+    {
+      "hash": "ce9e181d354a3cd5",
+      "threshold": 8,
+      "label": "scanlator-ad",
+      "scope": "whole"
+    }
+  ]
 }
