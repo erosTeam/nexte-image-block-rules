@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/erosTeam/nexte-image-block-rules/main/schema/feed.schema.json",
+  "title": "NextE image block feed",
+  "type": "object",
+  "required": ["schema", "kind", "id", "title", "algorithm", "defaultThreshold", "updatedAt", "items"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": 1 },
+    "kind": { "const": "nexte-image-block-feed" },
+    "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "algorithm": { "const": "dct64-v1" },
+    "defaultThreshold": { "type": "integer", "minimum": 0, "maximum": 12 },
+    "updatedAt": { "type": "integer", "minimum": 0 },
+    "items": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "required": ["hash", "threshold", "label", "scope"],
+        "additionalProperties": false,
+        "properties": {
+          "hash": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+          "threshold": { "type": "integer", "minimum": 0, "maximum": 12 },
+          "label": { "type": "string", "minLength": 1, "maxLength": 48 },
+          "scope": { "enum": ["whole"] }
+        }
+      }
+    }
+  }
+}

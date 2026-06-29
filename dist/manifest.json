@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "kind": "nexte-image-block-manifest",
+  "updatedAt": 0,
+  "feeds": [
+    {
+      "id": "zh-scanlator-ads",
+      "title": "Chinese scanlator ads",
+      "url": "https://raw.githubusercontent.com/erosTeam/nexte-image-block-rules/main/dist/zh-scanlator-ads.json",
+      "algorithm": "dct64-v1",
+      "defaultThreshold": 8,
+      "count": 0,
+      "sha256": "9afd442dfcbeb3ff52d6f21453549a1fd9629ad9e36d6d4fabf7d069d16792d4"
+    }
+  ]
+}

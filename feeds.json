@@ -1,0 +1,9 @@
+[
+  {
+    "id": "zh-scanlator-ads",
+    "title": "Chinese scanlator ads",
+    "file": "rules/zh-scanlator-ads.jsonl",
+    "algorithm": "dct64-v1",
+    "defaultThreshold": 8
+  }
+]

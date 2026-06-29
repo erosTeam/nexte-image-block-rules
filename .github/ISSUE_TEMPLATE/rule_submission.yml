@@ -1,0 +1,36 @@
+name: Rule submission
+description: Submit a candidate pHash rule for review
+title: "rule: add pHash "
+labels: ["rule-submission"]
+body:
+  - type: input
+    id: hash
+    attributes:
+      label: pHash
+      description: 16-character dct64-v1 hex hash.
+      placeholder: 0123456789abcdef
+    validations:
+      required: true
+  - type: input
+    id: source_url
+    attributes:
+      label: Source URL
+      description: Optional public review link. Do not include cookies or temporary EH image links.
+    validations:
+      required: false
+  - type: textarea
+    id: note
+    attributes:
+      label: Note
+      description: Why should this image be blocked?
+      placeholder: Repeated full-page scanlator ad.
+    validations:
+      required: true
+  - type: dropdown
+    id: feed
+    attributes:
+      label: Feed
+      options:
+        - zh-scanlator-ads
+    validations:
+      required: true

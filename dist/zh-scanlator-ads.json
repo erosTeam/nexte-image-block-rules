@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "kind": "nexte-image-block-feed",
+  "id": "zh-scanlator-ads",
+  "title": "Chinese scanlator ads",
+  "algorithm": "dct64-v1",
+  "defaultThreshold": 8,
+  "updatedAt": 0,
+  "items": []
+}
